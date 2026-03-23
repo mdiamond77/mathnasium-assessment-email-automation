@@ -1,0 +1,17 @@
+{
+  "name": "mathnasium-radius-scraper",
+  "version": "1.0.0",
+  "description": "Nightly Radius scraper for Mathnasium email automation",
+  "main": "scraper.js",
+  "scripts": {
+    "start": "node scraper.js",
+    "test": "node scraper.js --dry-run"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.42.0",
+    "playwright": "^1.42.0",
+    "googleapis": "^140.0.0",
+    "xlsx": "^0.18.5",
+    "date-fns": "^3.3.1"
+  }
+}
