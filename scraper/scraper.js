@@ -112,7 +112,7 @@ async function loginToRadius(page) {
   console.log('🔐 Logging in...');
 
   await page.goto(`${RADIUS_BASE_URL}/Account/Login`, { waitUntil: 'networkidle' });
-  await page.fill('#UserName', process.env.RADIUS_EMAIL);
+  await page.fill('#UserName', process.env.RADIUS_USERNAME);
   await page.fill('#Password', process.env.RADIUS_PASSWORD);
   await page.click('#login');
 
