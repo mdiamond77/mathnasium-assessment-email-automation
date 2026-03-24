@@ -80,8 +80,11 @@ def main():
             download_learning_plans(page, triggered_students)
 
             # 5. Upload to Google Drive
-            if not DRY_RUN:
+            drive_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_KEY', '').strip()
+            if not DRY_RUN and drive_key:
                 upload_to_google_drive(student_report_path, triggered_students)
+            elif not drive_key:
+                print('\n⚠️  Skipping Drive upload — GOOGLE_SERVICE_ACCOUNT_KEY not set yet')
             else:
                 print('\n🧪 DRY RUN: skipping Drive upload')
                 print('Local files ready in scraper/downloads/')
@@ -298,12 +301,12 @@ def download_single_learning_plan(page, student):
     page.goto(url)
     page.wait_for_load_state('networkidle')
 
-    lp_button = page.locator('a.k-grid-LPReport').first()
-    if lp_button.count() == 0:
+    lp_locator = page.locator('a.k-grid-LPReport')
+    if lp_locator.count() == 0:
         raise Exception('LP Report button not found')
 
     with page.expect_download(timeout=15000) as dl_info:
-        lp_button.click()
+        lp_locator.first().click()
     download = dl_info.value
 
     safe_name = re.sub(r'[^a-z0-9]', '-', student['studentName'].lower())
