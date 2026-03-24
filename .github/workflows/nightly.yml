@@ -2,7 +2,7 @@ name: Nightly Email Queue Builder
 
 on:
   schedule:
-    - cron: '0 11 * * *'  # 6:00 AM ET daily
+    - cron: '0 14 * * *'  # 9:00 AM ET daily
   workflow_dispatch:       # Allow manual trigger
 
 jobs:
@@ -33,7 +33,15 @@ jobs:
         run: |
           python scraper/scraper.py
 
-      - name: Upload debug artifacts on failure
+      - name: Upload downloaded files for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraper-downloads
+          path: scraper/downloads/
+          retention-days: 7
+
+      - name: Upload debug screenshots on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
