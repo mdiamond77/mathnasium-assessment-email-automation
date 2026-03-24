@@ -137,10 +137,10 @@ def download_student_report(page):
         href = link.get_attribute('href')
         if name and href:
             student_url_lookup[name] = f'{RADIUS_BASE_URL}{href}'
-print(f'  ✓ Found URLs for {len(student_url_lookup)} students')
-# Debug: show first 5 entries
-for k, v in list(student_url_lookup.items())[:5]:
-    print(f'    key: {repr(k)} → {v}')
+    print(f'  ✓ Found URLs for {len(student_url_lookup)} students')
+    for k, v in list(student_url_lookup.items())[:5]:
+        print(f'    key: {repr(k)}')
+
     # Screenshot for debugging
     page.screenshot(path=str(DOWNLOAD_DIR / 'before-export.png'))
 
