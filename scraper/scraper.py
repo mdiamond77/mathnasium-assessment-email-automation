@@ -119,27 +119,30 @@ def login(page):
 # 2. DOWNLOAD STUDENT REPORT
 # ─────────────────────────────────────────────
 def download_student_report(page):
-    print('\n📋 Downloading Student Report...')
+    print(chr(10) + chr(128203) + chr(32) + 'Downloading Student Report...')
 
-    page.goto(f'{RADIUS_BASE_URL}/StudentReport')
+    import time
+
+    page.goto(f"{RADIUS_BASE_URL}/StudentReport")
     page.wait_for_load_state('networkidle')
+    time.sleep(2)
 
-    # Open the Enrollment Filter Kendo dropdown and select "Enrolled"
+    # Open the Enrollment Filter Kendo dropdown and select Enrolled
+    page.wait_for_selector('[aria-owns="enrollmentFiltersDropDownList_listbox"]', timeout=10000)
     page.click('[aria-owns="enrollmentFiltersDropDownList_listbox"]')
-    page.wait_for_selector('#enrollmentFiltersDropDownList_listbox', timeout=5000)
+    page.wait_for_selector('#enrollmentFiltersDropDownList_listbox', timeout=10000)
+    time.sleep(1)
     page.click('#enrollmentFiltersDropDownList_listbox li:has-text("Enrolled")')
+    time.sleep(1)
 
-    # Click Search
+    # Click Search and wait generously for all students to load
     page.click('#btnsearch')
     page.wait_for_load_state('networkidle')
+    time.sleep(10)
 
-    # Wait 8 seconds for Radius to fully populate the table after search
-    import time
-    time.sleep(8)
-
-    # Take a screenshot so we can see the page state before exporting
-    page.screenshot(path=str(DEBUG_DIR / 'before-export.png'))
-    print('  📸 Screenshot saved: debug/before-export.png')
+    # Save screenshot to downloads so it appears in artifacts
+    page.screenshot(path=str(DOWNLOAD_DIR / 'before-export.png'))
+    print('  Screenshot saved to downloads/before-export.png')
 
     # Export to Excel
     with page.expect_download(timeout=30000) as download_info:
@@ -148,10 +151,9 @@ def download_student_report(page):
 
     file_path = DOWNLOAD_DIR / f'student-report-{folder_date_str}.xlsx'
     download.save_as(str(file_path))
-    print(f'  ✓ Saved: {file_path.name}')
+    print(f'  Saved: {file_path.name}')
     return file_path
 
-# ─────────────────────────────────────────────
 # 3. PARSE STUDENT REPORT
 # ─────────────────────────────────────────────
 def parse_student_report(file_path):
