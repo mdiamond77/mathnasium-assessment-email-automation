@@ -130,25 +130,30 @@ def download_student_report(page):
 
     # Scrape student name → Details URL from the table BEFORE exporting
     # This gives us the correct internal student ID for each student
-    # Set items per page to 500 to get all students in one page
-    page.select_option('select[data-role="dropdownlist"]', '1000')
-    time.sleep(3)
-
-    # Scrape student links — the table has separate first/last name columns
-    # Each link has href="/Student/Details/{id}" with just the first name as text
-    # We pair consecutive first+last name links to build full name → URL lookup
+    # Scrape student name → URL across all pages of results
     student_url_lookup = {}
-    links = page.locator('a[href*="/Student/Details/"]').all()
-    # links alternate: first name link, last name link, first name link, last name link...
-    i = 0
-    while i < len(links) - 1:
-        first_text = links[i].inner_text().strip().lower()
-        last_text  = links[i+1].inner_text().strip().lower()
-        href       = links[i].get_attribute('href')
-        if href and first_text and last_text:
-            full_name = f'{first_text} {last_text}'
-            student_url_lookup[full_name] = f'{RADIUS_BASE_URL}{href}'
-        i += 2
+
+    while True:
+        links = page.locator('a[href*="/Student/Details/"]').all()
+        # Table has separate first/last name columns — links alternate first, last, first, last
+        i = 0
+        while i < len(links) - 1:
+            first_text = links[i].inner_text().strip().lower()
+            last_text  = links[i+1].inner_text().strip().lower()
+            href       = links[i].get_attribute('href')
+            if href and first_text and last_text:
+                student_url_lookup[f'{first_text} {last_text}'] = f'{RADIUS_BASE_URL}{href}'
+            i += 2
+
+        # Check if there is a Next page button that is enabled
+        next_btn = page.locator('a.k-pager-nav[title="Go to the next page"]:not(.k-state-disabled)')
+        if next_btn.count() > 0:
+            next_btn.click()
+            page.wait_for_load_state('networkidle')
+            time.sleep(2)
+        else:
+            break
+
     print(f'  ✓ Found URLs for {len(student_url_lookup)} students')
     for k, v in list(student_url_lookup.items())[:3]:
         print(f'    {repr(k)} → {v}')
