@@ -132,7 +132,7 @@ def download_student_report(page):
     page.click('[aria-owns="enrollmentFiltersDropDownList_listbox"]')
     page.wait_for_selector('#enrollmentFiltersDropDownList_listbox', timeout=10000)
     time.sleep(1)
-    page.click('#enrollmentFiltersDropDownList_listbox li:has-text("Enrolled")')
+    page.click("#enrollmentFiltersDropDownList_listbox li:text-is(\"Enrolled\")")
     time.sleep(1)
 
     # Click Search and wait generously for all students to load
