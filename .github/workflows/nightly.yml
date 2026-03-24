@@ -2,9 +2,8 @@ name: Nightly Email Queue Builder
 
 on:
   schedule:
-    # Runs at 6:00 AM ET (11:00 UTC) every day
-    - cron: '0 11 * * *'
-  workflow_dispatch: # Allow manual trigger from GitHub UI
+    - cron: '0 11 * * *'  # 6:00 AM ET daily
+  workflow_dispatch:       # Allow manual trigger
 
 jobs:
   build-email-queue:
@@ -15,36 +14,29 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '20'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
-          cd scraper
-          npm install
-
-      - name: Install Playwright browsers
-        run: |
-          cd scraper
-          npx playwright install chromium --with-deps
+          pip install playwright openpyxl google-auth google-auth-httplib2 google-api-python-client
+          playwright install chromium --with-deps
 
       - name: Run Radius scraper
         env:
-          RADIUS_USERNAME: ${{ secrets.RADIUS_EMAIL }}
+          RADIUS_USERNAME: ${{ secrets.RADIUS_USERNAME }}
           RADIUS_PASSWORD: ${{ secrets.RADIUS_PASSWORD }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
           GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
         run: |
-          cd scraper
-          node scraper.js
+          python scraper/scraper.py
 
-      - name: Upload artifacts on failure (for debugging)
+      - name: Upload debug artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: debug-screenshots
           path: scraper/debug/
           retention-days: 3
-
