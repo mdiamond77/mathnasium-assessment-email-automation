@@ -130,6 +130,10 @@ def download_student_report(page):
 
     # Scrape student name → Details URL from the table BEFORE exporting
     # This gives us the correct internal student ID for each student
+    # Set items per page to 500 to get all students in one page
+    page.select_option('select[data-role="dropdownlist"]', '1000')
+    time.sleep(3)
+
     # Scrape student links — the table has separate first/last name columns
     # Each link has href="/Student/Details/{id}" with just the first name as text
     # We pair consecutive first+last name links to build full name → URL lookup
