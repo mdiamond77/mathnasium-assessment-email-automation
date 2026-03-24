@@ -298,10 +298,13 @@ def download_single_learning_plan(page, student, student_url_lookup):
     if not url:
         raise Exception(f"No Radius URL found for '{student['studentName']}' — checked {len(student_url_lookup)} entries")
 
+    print(f'    Navigating to: {url}')
     page.goto(url)
     page.wait_for_load_state('networkidle')
+    print(f'    Page loaded, looking for LP button...')
 
     lp_locator = page.locator('a.k-grid-LPReport')
+    print(f'    LP button count: {lp_locator.count()}')
     if lp_locator.count() == 0:
         # Save screenshot to debug
         safe = re.sub(r'[^a-z0-9]', '-', student['studentName'].lower())
