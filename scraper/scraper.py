@@ -66,7 +66,8 @@ def main():
             for s in triggered_students:
                 print(f"  • {s['studentName']} [{s['emailType']}] — {', '.join(s['emails'])}")
 
-            download_learning_plans(page, triggered_students, student_url_lookup)
+            # Pass context so LP download can handle new tabs
+            download_learning_plans(page, context, triggered_students, student_url_lookup)
 
             drive_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_KEY', '').strip()
             if not DRY_RUN and drive_key:
@@ -128,9 +129,7 @@ def download_student_report(page):
     page.wait_for_load_state('networkidle')
     time.sleep(10)
 
-    # Scrape student name → Details URL from the table BEFORE exporting
-    # This gives us the correct internal student ID for each student
-    # Scrape student name → URL across all pages of results
+    # Scrape student name → URL across all pages
     student_url_lookup = {}
 
     while True:
@@ -145,7 +144,7 @@ def download_student_report(page):
                 student_url_lookup[f'{first_text} {last_text}'] = f'{RADIUS_BASE_URL}{href}'
             i += 2
 
-        # Check if there is a Next page button that is enabled
+        # Go to next page if available
         next_btn = page.locator('a.k-pager-nav[title="Go to the next page"]:not(.k-state-disabled)')
         if next_btn.count() > 0:
             next_btn.click()
@@ -155,8 +154,6 @@ def download_student_report(page):
             break
 
     print(f'  ✓ Found URLs for {len(student_url_lookup)} students')
-    for k, v in list(student_url_lookup.items())[:3]:
-        print(f'    {repr(k)} → {v}')
 
     # Screenshot for debugging
     page.screenshot(path=str(DOWNLOAD_DIR / 'before-export.png'))
@@ -206,7 +203,10 @@ def parse_student_report(file_path):
         if not emails:
             print(f'  ⚠️  {name} has no guardian email — skipping')
             continue
-        triggered_students.append(build_student(row, headers, get, name, emails, 'level-up', last_assessment, normalize_date(get(row, 'Last Progress Check'))))
+        triggered_students.append(build_student(
+            get, row, name, emails, 'level-up',
+            last_assessment, normalize_date(get(row, 'Last Progress Check'))
+        ))
         level_up_names.add(name.lower())
         print(f'  ✓ Level Up: {name}')
 
@@ -221,7 +221,6 @@ def parse_student_report(file_path):
         if not name or name == 'x x' or name.lower() in level_up_names:
             continue
         last_assessment = normalize_date(get(row, 'Last Assessment'))
-        # Within level-up window = treat as level-up (late-graded PC)
         if last_assessment:
             assess_date = parse_date(last_assessment)
             pc_date = parse_date(last_pc)
@@ -232,13 +231,17 @@ def parse_student_report(file_path):
                     if not emails:
                         continue
                     print(f'  ✓ Level Up (late-graded PC): {name} — {diff} day(s) gap')
-                    triggered_students.append(build_student(row, headers, get, name, emails, 'level-up', last_assessment, last_pc))
+                    triggered_students.append(build_student(
+                        get, row, name, emails, 'level-up', last_assessment, last_pc
+                    ))
                     continue
         emails = parse_emails(get(row, 'Guardian Emails') or get(row, 'Guardian Email List'))
         if not emails:
             print(f'  ⚠️  {name} has no guardian email — skipping')
             continue
-        triggered_students.append(build_student(row, headers, get, name, emails, 'progress-check', last_assessment, last_pc))
+        triggered_students.append(build_student(
+            get, row, name, emails, 'progress-check', last_assessment, last_pc
+        ))
         print(f'  ✓ Progress Check: {name}')
 
     level_ups = sum(1 for s in triggered_students if s['emailType'] == 'level-up')
@@ -247,7 +250,7 @@ def parse_student_report(file_path):
     return triggered_students
 
 
-def build_student(row, headers, get, name, emails, email_type, last_assessment, last_pc):
+def build_student(get, row, name, emails, email_type, last_assessment, last_pc):
     return {
         'studentName':        name,
         'firstName':          name.split(' ')[0],
@@ -266,11 +269,11 @@ def build_student(row, headers, get, name, emails, email_type, last_assessment, 
 # ─────────────────────────────────────────────
 # 4. DOWNLOAD LEARNING PLANS
 # ─────────────────────────────────────────────
-def download_learning_plans(page, triggered_students, student_url_lookup):
+def download_learning_plans(page, context, triggered_students, student_url_lookup):
     print('\n📚 Downloading Learning Plans...')
     for student in triggered_students:
         try:
-            file_path = download_single_learning_plan(page, student, student_url_lookup)
+            file_path = download_single_learning_plan(page, context, student, student_url_lookup)
             student['learningPlanStatus'] = 'ready'
             student['learningPlanPath'] = str(file_path)
             print(f"  ✓ {student['studentName']}")
@@ -281,43 +284,51 @@ def download_learning_plans(page, triggered_students, student_url_lookup):
             page.screenshot(path=str(DEBUG_DIR / f'lp-error-{safe}.png'))
 
 
-def download_single_learning_plan(page, student, student_url_lookup):
-    # Look up the correct student Details URL from the table we scraped
+def download_single_learning_plan(page, context, student, student_url_lookup):
+    # Look up correct student URL
     name_key = student['studentName'].lower()
     url = student_url_lookup.get(name_key)
 
-    # Fallback: try matching by first name if full name not found
-    # (handles trailing spaces like "Leo " in the HTML)
+    # Fallback: match by first name if only one match
     if not url:
         first = student['firstName'].lower()
         matches = {k: v for k, v in student_url_lookup.items() if k.startswith(first + ' ')}
         if len(matches) == 1:
             url = list(matches.values())[0]
-            print(f"    (matched '{name_key}' via first name fallback)")
 
     if not url:
-        raise Exception(f"No Radius URL found for '{student['studentName']}' — checked {len(student_url_lookup)} entries")
+        raise Exception(f"No Radius URL found for '{student['studentName']}'")
 
-    print(f'    Navigating to: {url}')
     page.goto(url)
     page.wait_for_load_state('networkidle')
-    print(f'    Page loaded, looking for LP button...')
 
     lp_locator = page.locator('a.k-grid-LPReport')
-    print(f'    LP button count: {lp_locator.count()}')
-    if lp_locator.count() == 0:
-        # Save screenshot to debug
+    count = lp_locator.count()
+    if count == 0:
         safe = re.sub(r'[^a-z0-9]', '-', student['studentName'].lower())
         page.screenshot(path=str(DOWNLOAD_DIR / f'lp-page-{safe}.png'))
-        raise Exception('LP Report button not found — screenshot saved')
+        raise Exception('LP Report button not found')
 
-    with page.expect_download(timeout=15000) as dl_info:
-        lp_locator.first.click()
-    download = dl_info.value
+    print(f'    Found {count} LP button(s) — clicking first...')
 
     safe_name = re.sub(r'[^a-z0-9]', '-', student['studentName'].lower())
     file_path = DOWNLOAD_DIR / f"lp-{safe_name}-{folder_date_str}.pdf"
-    download.save_as(str(file_path))
+
+    # The LP button opens in a new tab — handle that
+    with context.expect_page() as new_page_info:
+        lp_locator.first.click()
+
+    new_page = new_page_info.value
+    new_page.wait_for_load_state('networkidle')
+
+    pdf_url = new_page.url
+    print(f'    New tab URL: {pdf_url}')
+
+    # Download the PDF from the new tab
+    response = new_page.request.get(pdf_url)
+    file_path.write_bytes(response.body())
+    new_page.close()
+
     return file_path
 
 
