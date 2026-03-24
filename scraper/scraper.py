@@ -108,7 +108,8 @@ def login(page):
     page.wait_for_load_state('networkidle')
 
     try:
-        page.wait_for_selector('.icon-bar', timeout=15000)
+        # "Sign Out" link only appears when successfully logged in
+        page.wait_for_selector('a:has-text("Sign Out")', timeout=15000)
         print('  ✓ Logged in')
     except Exception:
         page.screenshot(path=str(DEBUG_DIR / 'login-failed.png'))
