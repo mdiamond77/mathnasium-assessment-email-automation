@@ -312,7 +312,7 @@ def download_single_learning_plan(page, student, student_url_lookup):
         raise Exception('LP Report button not found — screenshot saved')
 
     with page.expect_download(timeout=15000) as dl_info:
-        lp_locator.first().click()
+        lp_locator.first.click()
     download = dl_info.value
 
     safe_name = re.sub(r'[^a-z0-9]', '-', student['studentName'].lower())
