@@ -130,16 +130,24 @@ def download_student_report(page):
 
     # Scrape student name → Details URL from the table BEFORE exporting
     # This gives us the correct internal student ID for each student
+    # Scrape student links — the table has separate first/last name columns
+    # Each link has href="/Student/Details/{id}" with just the first name as text
+    # We pair consecutive first+last name links to build full name → URL lookup
     student_url_lookup = {}
     links = page.locator('a[href*="/Student/Details/"]').all()
-    for link in links:
-        name = link.inner_text().strip().lower()
-        href = link.get_attribute('href')
-        if name and href:
-            student_url_lookup[name] = f'{RADIUS_BASE_URL}{href}'
+    # links alternate: first name link, last name link, first name link, last name link...
+    i = 0
+    while i < len(links) - 1:
+        first_text = links[i].inner_text().strip().lower()
+        last_text  = links[i+1].inner_text().strip().lower()
+        href       = links[i].get_attribute('href')
+        if href and first_text and last_text:
+            full_name = f'{first_text} {last_text}'
+            student_url_lookup[full_name] = f'{RADIUS_BASE_URL}{href}'
+        i += 2
     print(f'  ✓ Found URLs for {len(student_url_lookup)} students')
-    for k, v in list(student_url_lookup.items())[:5]:
-        print(f'    key: {repr(k)}')
+    for k, v in list(student_url_lookup.items())[:3]:
+        print(f'    {repr(k)} → {v}')
 
     # Screenshot for debugging
     page.screenshot(path=str(DOWNLOAD_DIR / 'before-export.png'))
